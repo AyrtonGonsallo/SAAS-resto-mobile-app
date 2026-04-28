@@ -197,6 +197,13 @@ class _DailyOrdersListPageState extends State<DailyOrdersListPage> {
                       },
                     ),
                     _buildDrawerItem(
+                      icon: Icons.local_shipping,
+                      text: "Livraisons",
+                      onTap: () {
+                        Navigator.pushNamed(context, '/shipping');
+                      },
+                    ),
+                    _buildDrawerItem(
                       icon: Icons.notifications,
                       text: "Notifications",
                       onTap: () {

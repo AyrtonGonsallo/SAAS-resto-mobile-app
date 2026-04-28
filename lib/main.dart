@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:saas_resto_mobile_app/Pages/LivraisonsList.dart';
 import 'package:saas_resto_mobile_app/Pages/MessagesList.dart';
 import 'package:saas_resto_mobile_app/Pages/NotificationsList.dart';
 import 'package:saas_resto_mobile_app/theme/app_colors.dart';
@@ -54,6 +55,9 @@ class MyApp extends StatelessWidget {
 
         '/bookings-today': (context) =>
             DailyBookingsListPage(userId: AppState.userId),
+
+        '/shipping': (context) =>
+            LivraisonsListPage(userId: AppState.userId),
 
         '/all-notifications': (context) =>
             NotificationsListPage(userId: AppState.userId),

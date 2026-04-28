@@ -193,7 +193,14 @@ class _OrdersListPageState extends State<OrdersListPage> {
                       onTap: () {
                         Navigator.pushNamed(context, '/orders-today');
                       },
+                    ),_buildDrawerItem(
+                      icon: Icons.local_shipping,
+                      text: "Livraisons",
+                      onTap: () {
+                        Navigator.pushNamed(context, '/shipping');
+                      },
                     ),
+
                     _buildDrawerItem(
                       icon: Icons.notifications,
                       text: "Notifications",

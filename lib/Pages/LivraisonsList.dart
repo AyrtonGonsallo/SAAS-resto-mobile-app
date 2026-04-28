@@ -1,35 +1,40 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart' hide Notification;
+import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import '../AppState.dart';
 import '../Constants/ApiConstants.dart';
-import '../Models/Notification.dart';
+import '../Models/Livraison.dart';
 import '../db_helper.dart';
-import '../services/NotificationsService.dart';
+import '../services/LivraisonsService.dart';
+import '../services/LivraisonsService.dart';
 import '../services/api_helper.dart';
 import '../services/logoutService.dart';
-import '../theme/app_colors.dart';
+import 'DailyOrdersList.dart';
+import 'Home.dart';
 import 'Login.dart';
+import '../theme/app_colors.dart';
+import 'OrdersList.dart';
 
-class NotificationsListPage extends StatefulWidget {
+class LivraisonsListPage extends StatefulWidget {
   final int userId;
 
 
 
-  const NotificationsListPage({super.key, required this.userId});
+  const LivraisonsListPage({super.key, required this.userId});
 
   @override
-  State<NotificationsListPage> createState() => _NotificationsListPageState();
+  State<LivraisonsListPage> createState() => _LivraisonsListPageState();
 }
 
-class _NotificationsListPageState extends State<NotificationsListPage> {
+class _LivraisonsListPageState extends State<LivraisonsListPage> {
   Map<String, dynamic>? utilisateur;
   late int userId;
   int _currentIndex = 0;
-  final service = NotificationService();
-  List<Notification> dailyNotifications = [];
+  final service = LivraisonService();
+  List<Livraison> dailyLivraisons = [];
   int page = 1;
   String search = "";
   String statutFilter="toutes";
@@ -41,7 +46,7 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
 
   final List<int> _navigationStack = [];
 
-  final logoutService = LogoutService();
+
 
   bool isLoading = true;
 
@@ -72,13 +77,13 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
   Future<void> load({bool reset = false}) async {
     if (reset) {
       page = 1;
-      dailyNotifications.clear();
+      dailyLivraisons.clear();
     }
 
-    final newData = await service.getAllNotifications(page, search,statutFilter);
+    final newData = await service.getAllLivraisons(page, search,statutFilter);
 
     setState(() {
-      dailyNotifications = newData;
+      dailyLivraisons = newData;
     });
   }
 
@@ -97,13 +102,15 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
     load(reset: true);
   }
 
+  final logoutService = LogoutService();
+
 
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Notifications",style: const TextStyle(color: Colors.white),),
+        title: Text("Livraisons",style: const TextStyle(color: Colors.white),),
         backgroundColor: AppColors.primary,
         actions: [
           Row(
@@ -138,7 +145,6 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
             ],
           )
         ],
-
       ),
       drawer: Drawer(
         child: Container(
@@ -171,13 +177,6 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
                       },
                     ),
                     _buildDrawerItem(
-                      icon: Icons.event_note_sharp,
-                      text: "Reservations",
-                      onTap: () {
-                        Navigator.pushNamed(context, '/bookings');
-                      },
-                    ),
-                    _buildDrawerItem(
                       icon: Icons.event_rounded,
                       text: "Reservations du jour",
                       onTap: () {
@@ -199,10 +198,10 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
                       },
                     ),
                     _buildDrawerItem(
-                      icon: Icons.local_shipping,
-                      text: "Livraisons",
+                      icon: Icons.notifications,
+                      text: "Notifications",
                       onTap: () {
-                        Navigator.pushNamed(context, '/shipping');
+                        Navigator.pushNamed(context, '/all-notifications');
                       },
                     ),
                     _buildDrawerItem(
@@ -212,7 +211,6 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
                         Navigator.pushNamed(context, '/all-messages');
                       },
                     ),
-
                   ],
                 ),
               ),
@@ -231,7 +229,7 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
 
             //  TITLE
             Text(
-              "Toutes les notifications",
+              "Toutes les livraisons",
               style: TextStyle(
                 color: AppColors.primary,
                 fontSize: 18,
@@ -254,21 +252,22 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
 
             const SizedBox(height: 10),
 
-            //  FILTER 'non lue', 'lue'
+            //  FILTER 'En attente','En cours','Annulée','Terminée'
             Column(
-              crossAxisAlignment: CrossAxisAlignment.start, //  IMPORTANT
+              crossAxisAlignment: CrossAxisAlignment.start, // 🔥 IMPORTANT
               children: [
                 SizedBox(
                   width: 180,
                   child: DropdownButtonFormField<String>(
                     value: statutFilter,
                     hint: const Text("Statut"),
-                    //'en_attente', 'envoyé', 'échoué'
                     isExpanded: true,
                     items: const [
                       DropdownMenuItem(value: "toutes", child: Text("Toutes")),
-                      DropdownMenuItem(value: "non lue", child: Text("non lue")),
-                      DropdownMenuItem(value: "lue", child: Text("lue")),
+                      DropdownMenuItem(value: "En attente", child: Text("En attente")),
+                      DropdownMenuItem(value: "En cours", child: Text("En cours")),
+                      DropdownMenuItem(value: "Annulée", child: Text("Annulée")),
+                      DropdownMenuItem(value: "Terminée", child: Text("Terminée")),
                     ],
                     onChanged: onStatusChanged,
                   ),
@@ -282,59 +281,57 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
             Expanded(
               child: ListView.builder(
                 controller: scroll,
-                itemCount: dailyNotifications.length,
+                itemCount: dailyLivraisons.length,
                 itemBuilder: (context, index) {
-                  final o = dailyNotifications[index];
-                  var dateRappel;
-                  if(o.dateRappel!=''){
-                    dateRappel = DateTime.parse(o.dateRappel!);
-                  }
-
+                  final o = dailyLivraisons[index];
+                  final dateLivraison = DateTime.parse(o.dateLivraison);
 
                   return Card(
                     child: ListTile(
                       leading: const Icon(Icons.event),
-                      title: Text("notification #${o.id}",style: TextStyle(color: AppColors.info),),
+                      title: Text("Livraison #${o.id}",style: TextStyle(color: AppColors.info),),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: o.statutLecture == "lue"
+                              color: o.statut == "Confirmée"
                                   ? AppColors.success
                                   : AppColors.tertiary,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              o.statutLecture,
+                              o.statut,
                               style: const TextStyle(color: Colors.white),
                             ),
                           ),
+                          Text("Client: ${o.client.nom} ${o.client.prenom}"),
+                          Text("Livreur: ${o.livreur.nom} ${o.livreur.prenom}"),
                           Text("Restaurant: ${o.restaurant.nom}"),
-                          Text("Type: ${o.type}"),
-                          Text("Titre: ${o.titre}"),
-                          Text(
-                            dateRappel != null
-                                ? format.format(dateRappel)
-                                : '-',
-                          ),
+                          Text("Adresse: ${o.adresseLivraison}"),
+                          Text("Date de livraison: ${format.format(dateLivraison)}"),
                         ],
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          //  Modifier statut
+                          IconButton(
+                            icon: const Icon(Icons.edit,color: AppColors.primary,),
+                            onPressed: () => openStatusPopup(o),
+                          ),
+                          //  Envoyer un message
+
+
+
                           //  Voir détails
                           IconButton(
                             icon: const Icon(Icons.visibility,color: AppColors.primary,),
-                            onPressed: () async {
-                              openDetailsPopup(o);
-                              await updateStatut(o.id, 'lue');
-                            },
+                            onPressed: () => openDetailsPopup(o),
                           ),
                         ],
                       ),
-
 
                       isThreeLine: true,
                     ),
@@ -348,31 +345,62 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
       backgroundColor: Color(0xFFF5F7F9),
     );
   }
-  Future<void> updateStatut(int id, String statut_lecture) async {
-    final headers = await getHeaders(); // avec token
 
-    final response = await http.put(
-      Uri.parse("${ApiConstants.baseUrl}/update_notification/$id"),
-      headers: headers,
-      body: jsonEncode({
-        "statut_lecture": statut_lecture,
-      }),
+
+
+  void openStatusPopup(Livraison o) {
+    showDialog(
+      context: context,
+      builder: (_) {
+        String newStatus = o.statut;
+        final statuses = ['En attente','En cours','Annulée','Terminée'];
+
+        return AlertDialog(
+          title: const Text("Changer le statut",style: TextStyle(color: AppColors.primary),),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              return DropdownButtonFormField<String>(
+                value: newStatus,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: "Statut",
+                  border: OutlineInputBorder(),
+                ),
+                items: statuses.map((status) {
+                  return DropdownMenuItem(
+                    value: status,
+                    child: Text(status),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    newStatus = value!;
+                  });
+                },
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Annuler"),
+            ),
+            ElevatedButton(
+              style: ButtonStyle(backgroundColor: WidgetStateProperty.all(AppColors.primary),foregroundColor: WidgetStateProperty.all(AppColors.light)),
+              onPressed: () async {
+                await updateStatut(o.id, newStatus);
+                Navigator.pop(context);
+                load(reset: true);
+              },
+              child: const Text("Valider"),
+            ),
+          ],
+        );
+      },
     );
-
-    if (response.statusCode == 200) {
-      // IMPORTANT : reload après update
-      await service.reloadDatas();
-    } else {
-      throw Exception("Erreur update statut");
-    }
-
-    service.reloadDatas();
-    load(reset: true);
   }
 
-
-
-  void openDetailsPopup(Notification o) {
+  void openDetailsPopup(Livraison o) {
     showDialog(
       context: context,
       builder: (_) {
@@ -387,9 +415,9 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
-                  //  HEADER
+                  // 🧾 HEADER
                   Text(
-                    "Notiffication #${o.id}",
+                    "Livraison #${o.id}",
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -400,35 +428,34 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
                   const SizedBox(height: 12),
                   const Divider(),
 
-                  //
+                  // 👤 CLIENT
                   Text(
-                    "Type: ${o.type}",
+                    "Client: ${o.client.nom } ${o.client.prenom}",
+                    style: const TextStyle(fontSize: 15),
                   ),
 
                   const SizedBox(height: 8),
 
-                  Text("Date: ${o.dateRappel}"),
+                  Text("Date: ${o.dateLivraison}"),
                   const SizedBox(height: 8),
 
-                  Text("Titre: ${o.titre}"),
+                  Text("Adresse: ${o.adresseLivraison}"),
                   const SizedBox(height: 8),
 
-                  Text("Statut: ${o.statutLecture}"),
+                  Text("Statut: ${o.statut}"),
 
                   const Divider(height: 25),
 
-                  //
-                  if (o.texte.isNotEmpty) ...[
+                  // 📝 NOTES
+                  if (o.notesLivreur != null && o.notesLivreur!.isNotEmpty) ...[
                     const Text(
-                      "Texte",
+                      "Notes livreur",
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 6),
-                    Text(o.texte),
+                    Text(o.notesLivreur!),
                     const SizedBox(height: 15),
                   ],
-
-
 
                   const SizedBox(height: 20),
 
@@ -436,6 +463,7 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
+
                       TextButton(
                         onPressed: () => Navigator.pop(context),
                         child: const Text("Fermer"),
@@ -453,6 +481,25 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
         );
       },
     );
+  }
+
+  Future<void> updateStatut(int id, String statut) async {
+    final headers = await getHeaders(); // avec token
+
+    final response = await http.put(
+      Uri.parse("${ApiConstants.baseUrl}/update_livraison_statut/$id"),
+      headers: headers,
+      body: jsonEncode({
+        "statut": statut,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      //  IMPORTANT : reload après update
+      await service.reloadDatas();
+    } else {
+      throw Exception("Erreur update statut");
+    }
   }
 
   Widget _buildDrawerItem({

@@ -138,6 +138,13 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
                     _buildDrawerItem(
+                      icon: Icons.local_shipping,
+                      text: "Livraisons",
+                      onTap: () {
+                        Navigator.pushNamed(context, '/shipping');
+                      },
+                    ),
+                    _buildDrawerItem(
                       icon: Icons.notifications,
                       text: "Notifications",
                       onTap: () {
