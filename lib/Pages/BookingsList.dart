@@ -1,0 +1,738 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import '../AppState.dart';
+import '../Constants/ApiConstants.dart';
+import '../Models/Booking.dart';
+import '../db_helper.dart';
+import '../services/BookingService.dart';
+import '../services/api_helper.dart';
+import '../services/logoutService.dart';
+import 'DailyBookingsList.dart';
+import 'DailyOrdersList.dart';
+import 'Home.dart';
+import 'Login.dart';
+import '../theme/app_colors.dart';
+import 'OrdersList.dart';
+
+class BookingsListPage extends StatefulWidget {
+  final int userId;
+
+
+
+  const BookingsListPage({super.key, required this.userId});
+
+  @override
+  State<BookingsListPage> createState() => _BookingsListPageState();
+}
+
+class _BookingsListPageState extends State<BookingsListPage> {
+  Map<String, dynamic>? utilisateur;
+  late int userId;
+  int _currentIndex = 0;
+  final service = BookingService();
+  List<Booking> dailyBookings = [];
+  int page = 1;
+  String search = "";
+  String statutFilter="toutes";
+  final TextEditingController searchCtrl = TextEditingController();
+  final format = DateFormat('dd/MM/yyyy HH:mm');
+  final ScrollController scroll = ScrollController();
+  final today = DateFormat('dd/MM/yyyy').format(DateTime.now());
+
+
+  final List<int> _navigationStack = [];
+
+
+
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    userId = widget.userId;
+    _navigationStack.add(_currentIndex);
+
+    _chargerUtilisateur();
+    load();
+    scroll.addListener(() {
+      if (scroll.position.pixels ==
+          scroll.position.maxScrollExtent) {
+        loadMore();
+      }
+    });
+
+  }
+
+  Future<void> _chargerUtilisateur() async {
+    final user = await DBHelper.getUser();
+    setState(() {
+      utilisateur = user;
+    });
+  }
+
+  Future<void> load({bool reset = false}) async {
+    if (reset) {
+      page = 1;
+      dailyBookings.clear();
+    }
+
+    final newData = await service.getAllBookings(page, search,statutFilter);
+
+    setState(() {
+      dailyBookings = newData;
+    });
+  }
+
+  void loadMore() {
+    page++;
+    load();
+  }
+
+  void onSearchChanged(String value) {
+    search = value;
+    load(reset: true);
+  }
+
+  void onStatusChanged(String? value) {
+    statutFilter = value!;
+    load(reset: true);
+  }
+
+  final logoutService = LogoutService();
+
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Réservations",style: const TextStyle(color: Colors.white),),
+        backgroundColor: AppColors.primary,
+        actions: [
+          Row(
+            children: [
+
+              //  IMAGE
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.white,
+                child: Icon(Icons.person, color: AppColors.primary, size: 18),
+              ),
+
+              const SizedBox(width: 8),
+
+              //  TEXTE
+              Text(
+                "${utilisateur?['nom'] ?? ''} ${utilisateur?['prenom'] ?? ''} (${utilisateur?['Role']['titre'] ?? ''})",
+                style: const TextStyle(color: Colors.white),
+              ),
+
+              const SizedBox(width: 10),
+
+              //  LOGOUT
+              IconButton(
+                icon: const Icon(Icons.logout, color: AppColors.light),
+                onPressed: () async {
+                  await logoutService.logout(context);
+                },
+              ),
+
+              const SizedBox(width: 10),
+            ],
+          )
+        ],
+      ),
+      drawer: Drawer(
+        child: Container(
+          color: Colors.white,
+          child: Column(
+            children: [
+              // Header
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  color: AppColors.light,
+
+                ),
+                child: Center(
+                  child: Image.asset(
+                    "images/logo_app_150.png",
+                    height: 60,
+                  ),
+                ),
+              ),
+              // Menu Items
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  children: [
+                    _buildDrawerItem(
+                      icon: Icons.home,
+                      text: "Accueil",
+                      onTap: () {
+                        Navigator.pushNamed(context, '/');
+                      },
+                    ),
+                    _buildDrawerItem(
+                      icon: Icons.event_rounded,
+                      text: "Reservations du jour",
+                      onTap: () {
+                        Navigator.pushNamed(context, '/bookings-today');
+                      },
+                    ),
+                    _buildDrawerItem(
+                      icon: Icons.shopping_basket,
+                      text: "Commandes",
+                      onTap: () {
+                        Navigator.pushNamed(context, '/orders');
+                      },
+                    ),
+                    _buildDrawerItem(
+                      icon: Icons.shopping_bag,
+                      text: "Commandes du jour",
+                      onTap: () {
+                        Navigator.pushNamed(context, '/orders-today');
+                      },
+                    ),
+                    _buildDrawerItem(
+                      icon: Icons.notifications,
+                      text: "Notifications",
+                      onTap: () {
+                        Navigator.pushNamed(context, '/all-notifications');
+                      },
+                    ),
+                    _buildDrawerItem(
+                      icon: Icons.message_sharp,
+                      text: "Messages",
+                      onTap: () {
+                        Navigator.pushNamed(context, '/all-messages');
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+
+            ],
+          ),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+
+            //  TITLE
+            Text(
+              "Toutes les réservations",
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // 🔍 SEARCH
+            TextField(
+              controller: searchCtrl,
+              onChanged: onSearchChanged,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: "Rechercher...",
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            //  FILTER 'En attente', 'Confirmée','En cours','Annulée','Terminée','No-show'
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start, // 🔥 IMPORTANT
+              children: [
+                SizedBox(
+                  width: 180,
+                  child: DropdownButtonFormField<String>(
+                    value: statutFilter,
+                    hint: const Text("Statut"),
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: "toutes", child: Text("Toutes")),
+                      DropdownMenuItem(value: "En attente", child: Text("En attente")),
+                      DropdownMenuItem(value: "Confirmée", child: Text("Confirmée")),
+                      DropdownMenuItem(value: "En cours", child: Text("En cours")),
+                      DropdownMenuItem(value: "Annulée", child: Text("Annulée")),
+                      DropdownMenuItem(value: "Terminée", child: Text("Terminée")),
+                      DropdownMenuItem(value: "No-show", child: Text("No-show")),
+                    ],
+                    onChanged: onStatusChanged,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            //  LISTE
+            Expanded(
+              child: ListView.builder(
+                controller: scroll,
+                itemCount: dailyBookings.length,
+                itemBuilder: (context, index) {
+                  final o = dailyBookings[index];
+                  final dateCreation = DateTime.parse(o.dateCreation);
+                  final dateReservation = DateTime.parse(o.dateReservation);
+
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.event),
+                      title: Text("Réservation #${o.id}",style: TextStyle(color: AppColors.info),),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: o.statut == "Confirmée"
+                                  ? AppColors.success
+                                  : AppColors.tertiary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              o.statut,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          Text("Client: ${o.client.nom} ${o.client.prenom}"),
+                          Text("Restaurant: ${o.restaurant.nom}"),
+                          Text("Nombre de personnes: ${o.nombreDePersonnes}"),
+                          Text("Nombre de couverts: ${o.nbCouverts}"),
+                          Text("Date de création: ${format.format(dateCreation)}"),
+                          Text("Date de réservation: ${format.format(dateReservation)}"),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          //  Modifier statut
+                          IconButton(
+                            icon: const Icon(Icons.edit,color: AppColors.primary,),
+                            onPressed: () => openStatusPopup(o),
+                          ),
+                          //  Envoyer un message
+                          IconButton(
+                            icon: const Icon(Icons.message,color: AppColors.primary,),
+                            onPressed: () => openMessagePopup(o),
+                          ),
+
+
+                          //  Voir détails
+                          IconButton(
+                            icon: const Icon(Icons.visibility,color: AppColors.primary,),
+                            onPressed: () => openDetailsPopup(o),
+                          ),
+                        ],
+                      ),
+
+                      isThreeLine: true,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      backgroundColor: Color(0xFFF5F7F9),
+    );
+  }
+
+
+  void openMessagePopup(Booking b) {
+    final TextEditingController titleCtrl = TextEditingController();
+    final TextEditingController messageCtrl = TextEditingController();
+
+    String type = "email"; // default
+
+    showDialog(
+      context: context,
+      builder: (_) {
+        return Dialog(
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return Container(
+                width: MediaQuery.of(context).size.width * 0.6,
+                constraints: const BoxConstraints(maxWidth: 600),
+                padding: const EdgeInsets.all(16),
+
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+
+                    // 🧾 TITLE
+                    const Text(
+                      "Envoyer un message",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    // 👤 CLIENT
+                    Text(
+                      "Client: ${b.client?.nom ?? ''} ${b.client?.prenom ?? ''}",
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    // 📧 TYPE
+                    DropdownButtonFormField<String>(
+                      value: type,
+                      decoration: const InputDecoration(
+                        labelText: "Type",
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: "email", child: Text("Email")),
+                        DropdownMenuItem(value: "sms", child: Text("SMS")),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          type = value!;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    // 🏷 TITRE
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: "Titre",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    // 📝 MESSAGE
+                    TextField(
+                      controller: messageCtrl,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        labelText: "Message",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ⚡ ACTIONS
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text("Annuler"),
+                        ),
+
+                        const SizedBox(width: 10),
+
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.send),
+                          label: const Text("Envoyer"),
+                          onPressed: () async {
+
+                            final title = titleCtrl.text.trim();
+                            final message = messageCtrl.text.trim();
+
+                            if (message.isEmpty) return;
+
+                            print(userId);
+
+                            await sendMessage(
+                                reservation_id:  b.id,
+                                client_id:  b.clientId,
+                                employe_id:  userId,
+                                restaurant_id:  b.restaurantId,
+                                societe_id:  b.societeId,
+                                type:  type,
+                                titre:  title,
+                                texte:  message
+                            );
+
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ],
+                    )
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> sendMessage({
+    required int reservation_id,
+    required int client_id,
+    required int employe_id,
+    required int restaurant_id,
+    required int societe_id,
+    required String type,
+    required String titre,
+    required String texte,
+  }) async {
+    final user = await DBHelper.getUser();
+    final token = user?['access_token'];
+
+    final response = await http.post(
+      Uri.parse("${ApiConstants.baseUrl}/ajouter_message"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({
+        "reservation_id": reservation_id,
+        "type": type,
+        "titre": titre,
+        "texte": texte,
+        "societe_id": societe_id,
+        "restaurant_id": restaurant_id,
+        "employe_id": employe_id,
+        "client_id": client_id,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception("Erreur envoi message");
+    }
+  }
+
+
+  void openStatusPopup(Booking o) {
+    showDialog(
+      context: context,
+      builder: (_) {
+        String newStatus = o.statut;
+
+        final statuses = [
+          "En attente",
+          "Confirmée",
+          "En cours",
+          "Annulée",
+          "Terminée",
+          "No-show"
+        ];
+
+        return AlertDialog(
+          title: const Text("Changer le statut",style: TextStyle(color: AppColors.primary),),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              return DropdownButtonFormField<String>(
+                value: newStatus,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: "Statut",
+                  border: OutlineInputBorder(),
+                ),
+                items: statuses.map((status) {
+                  return DropdownMenuItem(
+                    value: status,
+                    child: Text(status),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    newStatus = value!;
+                  });
+                },
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Annuler"),
+            ),
+            ElevatedButton(
+              style: ButtonStyle(backgroundColor: WidgetStateProperty.all(AppColors.primary),foregroundColor: WidgetStateProperty.all(AppColors.light)),
+              onPressed: () async {
+                await updateStatut(o.id, newStatus);
+                Navigator.pop(context);
+                load(reset: true);
+              },
+              child: const Text("Valider"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void openDetailsPopup(Booking o) {
+    showDialog(
+      context: context,
+      builder: (_) {
+        return Dialog(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.65,
+            constraints: const BoxConstraints(maxWidth: 850),
+            padding: const EdgeInsets.all(18),
+
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+
+                  // 🧾 HEADER
+                  Text(
+                    "Réservation #${o.id}",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+                  const Divider(),
+
+                  // 👤 CLIENT
+                  Text(
+                    "Client: ${o.client.nom } ${o.client.prenom}",
+                    style: const TextStyle(fontSize: 15),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  Text("Date: ${o.dateReservation}"),
+                  const SizedBox(height: 8),
+
+                  Text("Personnes: ${o.nombreDePersonnes}"),
+                  const SizedBox(height: 8),
+
+                  Text("Statut: ${o.statut}"),
+
+                  const Divider(height: 25),
+
+                  // 📝 NOTES
+                  if (o.notes != null && o.notes!.isNotEmpty) ...[
+                    const Text(
+                      "Notes",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(o.notes!),
+                    const SizedBox(height: 15),
+                  ],
+
+                  // ⭐ DEMANDES SPÉCIALES
+                  if (o.demandesSpeciales != null &&
+                      o.demandesSpeciales!.isNotEmpty) ...[
+                    const Text(
+                      "Demandes spéciales",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(o.demandesSpeciales!),
+                  ],
+
+                  const SizedBox(height: 20),
+
+                  // ⚡ ACTIONS
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text("Fermer"),
+                      ),
+
+                      const SizedBox(width: 10),
+
+
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> updateStatut(int id, String statut) async {
+    final headers = await getHeaders(); // avec token
+
+    final response = await http.put(
+      Uri.parse("${ApiConstants.baseUrl}/update_mobile_reservation/$id"),
+      headers: headers,
+      body: jsonEncode({
+        "statut": statut,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      //  IMPORTANT : reload après update
+      await service.reloadDatas();
+    } else {
+      throw Exception("Erreur update statut");
+    }
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String text,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: onTap,
+        splashColor: Colors.black12,
+        highlightColor: Colors.black12,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: ListTile(
+            leading: Icon(icon, color: Colors.black87),
+            title: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          ),
+        ),
+      ),
+    );
+  }
+
+}
