@@ -74,22 +74,33 @@ class _LivraisonsListPageState extends State<LivraisonsListPage> {
     });
   }
 
+
   Future<void> load({bool reset = false}) async {
     if (reset) {
       page = 1;
       dailyLivraisons.clear();
     }
 
-    final newData = await service.getAllLivraisons(page, search,statutFilter);
+    final newData = await service.getAllLivraisons(page, search, statutFilter);
 
     setState(() {
-      dailyLivraisons = newData;
+      if (reset) {
+        dailyLivraisons = newData;
+      } else {
+        dailyLivraisons.addAll(newData); //
+      }
     });
   }
 
-  void loadMore() {
-    page++;
-    load();
+  void loadMore() async {
+    final newData = await service.getAllLivraisons(page + 1, search, statutFilter);
+
+    if (newData.isEmpty) return; //
+
+    setState(() {
+      page++;
+      dailyLivraisons.addAll(newData);
+    });
   }
 
   void onSearchChanged(String value) {

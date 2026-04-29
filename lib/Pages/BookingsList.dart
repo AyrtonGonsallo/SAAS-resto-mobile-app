@@ -1,27 +1,17 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import '../AppState.dart';
 import '../Constants/ApiConstants.dart';
 import '../Models/Booking.dart';
 import '../db_helper.dart';
 import '../services/BookingService.dart';
 import '../services/api_helper.dart';
 import '../services/logoutService.dart';
-import 'DailyBookingsList.dart';
-import 'DailyOrdersList.dart';
-import 'Home.dart';
-import 'Login.dart';
 import '../theme/app_colors.dart';
-import 'OrdersList.dart';
 
 class BookingsListPage extends StatefulWidget {
   final int userId;
-
-
 
   const BookingsListPage({super.key, required this.userId});
 
@@ -80,16 +70,26 @@ class _BookingsListPageState extends State<BookingsListPage> {
       dailyBookings.clear();
     }
 
-    final newData = await service.getAllBookings(page, search,statutFilter);
+    final newData = await service.getAllBookings(page, search, statutFilter);
 
     setState(() {
-      dailyBookings = newData;
+      if (reset) {
+        dailyBookings = newData;
+      } else {
+        dailyBookings.addAll(newData); //
+      }
     });
   }
 
-  void loadMore() {
-    page++;
-    load();
+  void loadMore() async {
+    final newData = await service.getAllBookings(page + 1, search, statutFilter);
+
+    if (newData.isEmpty) return; //
+
+    setState(() {
+      page++;
+      dailyBookings.addAll(newData);
+    });
   }
 
   void onSearchChanged(String value) {
@@ -318,6 +318,8 @@ class _BookingsListPageState extends State<BookingsListPage> {
                           ),
                           Text("Client: ${o.client.nom} ${o.client.prenom}"),
                           Text("Restaurant: ${o.restaurant.nom}"),
+                          Text("Zone: ${o.table.zone.titre}"),
+                          Text("Table: n°${o.table.numero} - ${o.table.nbPlaces} places"),
                           Text("Nombre de personnes: ${o.nombreDePersonnes}"),
                           Text("Nombre de couverts: ${o.nbCouverts}"),
                           Text("Date de création: ${format.format(dateCreation)}"),
@@ -628,6 +630,10 @@ class _BookingsListPageState extends State<BookingsListPage> {
                     "Client: ${o.client.nom } ${o.client.prenom}",
                     style: const TextStyle(fontSize: 15),
                   ),
+                  const SizedBox(height: 8),
+                  Text("Zone: ${o.table.zone.titre}"),
+                  const SizedBox(height: 8),
+                  Text("Table: n°${o.table.numero} - ${o.table.nbPlaces} places"),
 
                   const SizedBox(height: 8),
 

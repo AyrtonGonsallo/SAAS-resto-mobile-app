@@ -113,7 +113,7 @@ class BookingService {
       String search,
       String statut
       ) async {
-    // 🔥 1. refresh API si cache vide ou expiré
+    //  1. refresh API si cache vide ou expiré
     final shouldRefresh = _cache_all.isEmpty ||
         _lastFetch == null ||
         DateTime.now().difference(_lastFetch!) > cacheDuration;
@@ -122,7 +122,7 @@ class BookingService {
       await getFreshBookings();
     }
 
-    // 🔍 2. FILTRAGE LOCAL
+    //  2. FILTRAGE LOCAL
     List<Booking> filtered = _cache_all;
 
     if (search.isNotEmpty) {

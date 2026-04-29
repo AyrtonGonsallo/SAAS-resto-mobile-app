@@ -69,22 +69,33 @@ class _NotificationsListPageState extends State<NotificationsListPage> {
     });
   }
 
+
   Future<void> load({bool reset = false}) async {
     if (reset) {
       page = 1;
       dailyNotifications.clear();
     }
 
-    final newData = await service.getAllNotifications(page, search,statutFilter);
+    final newData = await service.getAllNotifications(page, search, statutFilter);
 
     setState(() {
-      dailyNotifications = newData;
+      if (reset) {
+        dailyNotifications = newData;
+      } else {
+        dailyNotifications.addAll(newData); //
+      }
     });
   }
 
-  void loadMore() {
-    page++;
-    load();
+  void loadMore() async {
+    final newData = await service.getAllNotifications(page + 1, search, statutFilter);
+
+    if (newData.isEmpty) return; //
+
+    setState(() {
+      page++;
+      dailyNotifications.addAll(newData);
+    });
   }
 
   void onSearchChanged(String value) {

@@ -76,16 +76,26 @@ class _DailyOrdersListPageState extends State<DailyOrdersListPage> {
       dailyOrders.clear();
     }
 
-    final newData = await service.getDailyOrders(page, search,statutFilter);
+    final newData = await service.getDailyOrders(page, search, statutFilter);
 
     setState(() {
-      dailyOrders = newData;
+      if (reset) {
+        dailyOrders = newData;
+      } else {
+        dailyOrders.addAll(newData); //
+      }
     });
   }
 
-  void loadMore() {
-    page++;
-    load();
+  void loadMore() async {
+    final newData = await service.getDailyOrders(page + 1, search, statutFilter);
+
+    if (newData.isEmpty) return; //
+
+    setState(() {
+      page++;
+      dailyOrders.addAll(newData);
+    });
   }
 
   void onSearchChanged(String value) {

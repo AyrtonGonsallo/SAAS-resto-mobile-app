@@ -64,22 +64,33 @@ class _MessagesListPageState extends State<MessagesListPage> {
     });
   }
 
+
   Future<void> load({bool reset = false}) async {
     if (reset) {
       page = 1;
       dailyMessages.clear();
     }
 
-    final newData = await service.getAllMessages(page, search,statutFilter);
+    final newData = await service.getAllMessages(page, search, statutFilter);
 
     setState(() {
-      dailyMessages = newData;
+      if (reset) {
+        dailyMessages = newData;
+      } else {
+        dailyMessages.addAll(newData); //
+      }
     });
   }
 
-  void loadMore() {
-    page++;
-    load();
+  void loadMore() async {
+    final newData = await service.getAllMessages(page + 1, search, statutFilter);
+
+    if (newData.isEmpty) return; //
+
+    setState(() {
+      page++;
+      dailyMessages.addAll(newData);
+    });
   }
 
   void onSearchChanged(String value) {

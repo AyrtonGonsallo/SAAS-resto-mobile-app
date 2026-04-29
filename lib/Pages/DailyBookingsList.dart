@@ -93,22 +93,34 @@ class _DailyBookingsListPageState extends State<DailyBookingsListPage> {
       utilisateur = user;
     });
   }
+
+
   Future<void> load({bool reset = false}) async {
     if (reset) {
       page = 1;
       dailyBookings.clear();
     }
 
-    final newData = await service.getDailyBookings(page, search,statutFilter);
+    final newData = await service.getDailyBookings(page, search, statutFilter);
 
     setState(() {
-      dailyBookings = newData;
+      if (reset) {
+        dailyBookings = newData;
+      } else {
+        dailyBookings.addAll(newData); //
+      }
     });
   }
 
-  void loadMore() {
-    page++;
-    load();
+  void loadMore() async {
+    final newData = await service.getDailyBookings(page + 1, search, statutFilter);
+
+    if (newData.isEmpty) return; //
+
+    setState(() {
+      page++;
+      dailyBookings.addAll(newData);
+    });
   }
 
   void onSearchChanged(String value) {
@@ -337,6 +349,8 @@ class _DailyBookingsListPageState extends State<DailyBookingsListPage> {
                             ),
                             Text("Client: ${o.client.nom} ${o.client.prenom}"),
                             Text("Restaurant: ${o.restaurant.nom}"),
+                            Text("Zone: ${o.table.zone.titre}"),
+                            Text("Table: n°${o.table.numero} - ${o.table.nbPlaces} places"),
                             Text("Nombre de personnes: ${o.nombreDePersonnes}"),
                             Text("Nombre de couverts: ${o.nbCouverts}"),
                             Text("Date de création: ${format.format(dateCreation)}"),
@@ -644,6 +658,10 @@ class _DailyBookingsListPageState extends State<DailyBookingsListPage> {
                     "Client: ${o.client.nom } ${o.client.prenom }",
                     style: const TextStyle(fontSize: 15),
                   ),
+                  const SizedBox(height: 8),
+                  Text("Zone: ${o.table.zone.titre}"),
+                  const SizedBox(height: 8),
+                  Text("Table: n°${o.table.numero} - ${o.table.nbPlaces} places"),
 
                   const SizedBox(height: 8),
 
